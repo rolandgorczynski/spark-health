@@ -1,0 +1,25 @@
+services:
+  receiver:
+    build: .
+    ports:
+      - "192.168.1.224:8097:8080"
+    volumes:
+      - ./data:/data
+    secrets:
+      - ingest_token
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+secrets:
+  ingest_token:
+    file: ./secrets/ingest_token
