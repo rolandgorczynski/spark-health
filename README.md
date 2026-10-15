@@ -80,3 +80,18 @@ docker compose config --quiet
 ```
 
 Tests use ephemeral tokens, temporary SQLite databases, and loopback HTTP with artificial events only. They cover all types, malformed input, bounds, auth, silent request logs, health, persistence, conflicts, concurrent retries, and request size/media type limits.
+
+## Private GitHub repository
+
+Repository: https://github.com/rolandgorczynski/spark-health (private).
+The `main` branch is published over SSH through
+`git@github.com:rolandgorczynski/spark-health.git` as `origin`.
+
+Only source, documentation, and synthetic fixtures belong in Git. Keep real
+health records, patient data, exports, SQLite databases and sidecars, local
+`.env` files, tokens, and credentials outside tracked files. Ignore rules are
+an extra safeguard; review `git status`, `git diff --cached`, and tracked files
+before every push. Never force-add private files. Local runtime data and secrets
+are not backed up by GitHub. The Android prototype is documented in
+[`android/README.md`](android/README.md); the bridge plan is in
+[`NEXT_STEP.md`](NEXT_STEP.md).
