@@ -4,7 +4,7 @@ Standalone native Kotlin app, API 36 minimum/target/compile. This implements the
 
 ## Try it without phone data
 
-Launch and press **Run synthetic fixture**. No permission is requested. One invented steps interval is mapped into the receiver's exact five-field schema, queued in memory, then sent twice to a scripted fake receiver (lost acknowledgement, then 201). Only synthetic origin, record/queue counts and acknowledgement status appear in the UI. No networking code, Internet permission, destination, credentials, database, logging or binary wrapper is included.
+Launch and press **Run synthetic fixture**. No permission is requested. One invented steps interval is mapped into the receiver's exact five-field schema, queued in memory, then sent twice to a scripted fake receiver (lost acknowledgement, then 201). Only synthetic origin, record/queue counts and acknowledgement status appear in the UI. No networking code, Internet permission, destination, credentials, database, logging is included.
 
 `Prototype.kt` is the platform-independent mapping/fake layer. `MainActivity.kt` is the optional Health Connect adapter. The live preview never feeds the fake outbox or transport. No real phone access was used during implementation.
 
@@ -30,21 +30,42 @@ This is a bounded preview, **not durable synchronization**: no Changes token/cur
 
 ## Build and tests
 
-Use a trusted installed JDK 17, Gradle 8.11.1, Android SDK platform 36 and Build Tools 35.0.0 (AGP default), plus dependencies available from Google Maven/Maven Central. Set `ANDROID_HOME` or an untracked `local.properties`. From this directory:
+From the repository root on this Ubuntu 24.04 ARM64 host (Python 3, curl, unzip, tar, apt and dpkg-deb are available):
 
 ```sh
-gradle --offline :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+python3 android/scripts/bootstrap-arm64.py
+android/scripts/build-debug.sh
+# Once dependencies are cached:
+android/scripts/build-debug.sh --offline
 ```
 
-Offline mode requires the pinned plugins/dependencies already cached. If not cached, provision through your trusted Android tooling/repositories before running without `--offline`. No download/bootstrap scripts or wrapper JARs are committed. [AGP 8.10 compatibility](https://developer.android.com/build/releases/agp-8-10-0-release-notes) specifies API 36, Gradle 8.11.1 and JDK 17; [Health Connect release notes](https://developer.android.com/jetpack/androidx/releases/health-connect) list the pinned stable client 1.1.0.
+Bootstrap downloads checksum-pinned Temurin JDK 17, official Gradle 8.11.1 and Google command-line tools 19.0 into ignored `.tools/`. It accepts SDK licenses and installs platform 36 and Build Tools 35.0.0. Gradle may also provision platform-tools; no adb command is used. Dependencies come from Google Maven/Maven Central/plugin portal. Google Linux build tools are x86-64: on ARM64, the script downloads Ubuntu QEMU and its libraries with `apt download`, extracts them locally, and uses Ubuntu amd64 runtime libraries verified against the HTTPS package index. It never installs system packages or registers binfmt. These Ubuntu dependencies follow the configured package repositories, while JDK/Gradle/command-line archives are pinned. The experimental AGP `android.aapt2FromMavenOverride` points to the local QEMU launcher.
 
-Eight JUnit tests use only synthetic fixtures: golden IDs/strict JSON, origin identity, UTC/DST, count/interval bounds, retries/lost acknowledgement, corrections/deletions/auth/409, origin-filtered pagination with both terminal token forms, permission/foreground loss during a page, and repeated-token rejection. No test contacts a receiver or device.
+On x86-64, install a trusted native JDK 17, Gradle 8.11.1, SDK platform 36 and Build Tools 35.0.0, then:
 
-Verification on the implementation host (2026-10-15):
+```sh
+JAVA_HOME=/path/to/jdk17 ANDROID_HOME=/path/to/sdk \
+  GRADLE_BIN=/path/to/gradle-8.11.1/bin/gradle android/scripts/build-debug.sh
+```
 
-- Available: `/usr/bin/java`, OpenJDK **1.8.0_504**, ARM64.
-- Missing: JDK 17 / `javac`, `gradle`, `kotlinc`, `sdkmanager`, `adb`; `ANDROID_HOME`, `ANDROID_SDK_ROOT` and `JAVA_HOME` unset. No SDK or Gradle cache found in the standard user/system locations inspected.
-- **Android compilation, JUnit execution, lint and device checks were not run:** the required toolchain is absent, and Java 8 cannot run AGP 8.10.1. Source/API compatibility remains unverified until those commands pass.
-- Manifest XML parsing, synthetic golden digest calculated independently in Python, and Git whitespace checks passed. No binaries or dependencies were downloaded and no real health data, credentials, deployment requests or service changes were used.
+The build script runs `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`, verifies the debug APK signature and prints its full path, size and SHA-256. Source API levels are all 36 (Android 16); this APK requires Android 16 or later. Tooling, debug signing keys, credentials, local SDK configuration and APK/build outputs stay untracked. The generated debug key lives in the standard user Android directory; it is for local debug installation only.
 
-On a trusted API 36 emulator/device, first run synthetic mode. Optional owner-operated acceptance checks: unavailable provider, deny/grant/revoke permission, empty/wrong origin, multi-page records, leave during a read, return without automatic read, withdraw consent, process restart. Confirm the APK merged manifest has no Internet/background/history/write permission. These device checks remain pending.
+Reports: `android/app/build/reports/tests/testDebugUnitTest/index.html` and `android/app/build/reports/lint-results-debug.html`. APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Eight JUnit tests use artificial fixtures only, covering golden identity/JSON, UTC/DST, invalid records, retries, corrections/deletions, auth/conflicts, filtered pagination, permission/foreground loss and loop rejection. Android 16 UI insets keep the main and rationale screens clear of system bars and the keyboard.
+
+Device installation/launch and interaction checks remain pending: no phone, real records, Mi Fitness login or emulator was used. Static APK/signature checks establish packaging compatibility, not runtime behavior. Any future device check must use an isolated API 36 emulator and artificial data only.
+
+Verified on 2026-10-15: Kotlin compilation, debug assembly, all **8 tests** (zero failures/skips), lint (**0 errors, 22 warnings**), APK v2 signature and 16 KiB zip alignment passed. Remaining lint warnings are English UI strings and newer dependency availability. An initial concurrent offline attempt ran before lint dependencies finished downloading and failed; the subsequent sequential offline build passed. Bootstrap was rerun successfully from the installed toolchain.
+
+Additional packaging checks from the repository root:
+
+```sh
+.tools/aapt2 dump badging android/app/build/outputs/apk/debug/app-debug.apk
+LD_LIBRARY_PATH="$PWD/.tools/qemu/usr/lib/aarch64-linux-gnu" \
+  .tools/qemu/usr/bin/qemu-x86_64 -L "$PWD/.tools/amd64" \
+  .tools/sdk/build-tools/35.0.0/zipalign -c -P 16 -v 4 \
+  android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Packaged badging confirms `local.spark.steps`, the launcher activity, min/target API 36 and only READ_STEPS plus AndroidX's signature-protected internal receiver permission. There are no native `.so` libraries. `apksigner verify` is part of the build script. Debug signing keys and ZIP timestamps can change between hosts, so the reported artifact digest identifies this build, not a promise of byte-identical rebuilds.

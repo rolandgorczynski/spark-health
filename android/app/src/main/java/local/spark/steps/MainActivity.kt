@@ -7,6 +7,8 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.activity.ComponentActivity
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -28,7 +30,9 @@ const val POLICY = "Steps only. Synthetic mode requires no permission or phone d
 class RationaleActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(TextView(this).apply { text = POLICY; setPadding(24, 48, 24, 24) })
+        val policy = TextView(this).apply { text = POLICY }
+        applySystemInsets(policy)
+        setContentView(android.widget.ScrollView(this).apply { addView(policy) })
     }
 }
 
@@ -85,6 +89,7 @@ class MainActivity : ComponentActivity() {
             if (!checked) { job?.cancel(); outbox.clear(); status.text = "Consent withdrawn; memory cleared." }
         }
         layout.addView(status)
+        applySystemInsets(scroll)
         setContentView(scroll)
     }
     private fun providerAvailable(): Boolean {
@@ -137,4 +142,14 @@ class MainActivity : ComponentActivity() {
         if (::status.isInitialized) status.text = "Screen left; preview stopped and fake memory cleared."
         super.onPause()
     }
+}
+
+/** API 36 enforces edge-to-edge: keep controls clear of bars and the keyboard. */
+private fun applySystemInsets(view: android.view.View) {
+    ViewCompat.setOnApplyWindowInsetsListener(view) { target, insets ->
+        val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+        target.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+        insets
+    }
+    ViewCompat.requestApplyInsets(view)
 }

@@ -34,3 +34,8 @@ backups/
 *.sqlite3-*
 *.sql
 *.dump
+
+# Local Android tooling and binary artifacts
+/.tools/
+*.apk
+*.aab
